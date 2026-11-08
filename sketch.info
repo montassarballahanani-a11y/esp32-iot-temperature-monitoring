@@ -1,0 +1,99 @@
+
+
+
+#include <HTTPClient.h>
+#include <DHT.h>
+#include <WiFi.h>
+#define DHTPIN 15
+#define DHTTYPE DHT22
+DHT dht(DHTPIN, DHTTYPE);
+const char* channelKey = "YOUR_WRITE_API_KEY";
+const int led = 18 ;
+void setup() {
+  pinMode(led, OUTPUT);
+  Serial.begin(115200);
+  
+WiFi.begin("Wokwi-GUEST", "", 6);
+
+Serial.print("Connexion WiFi");
+
+while (WiFi.status() != WL_CONNECTED) {
+  delay(500);
+  Serial.print(".");
+}
+
+Serial.println("\nWiFi connecte !");
+Serial.println(WiFi.localIP());
+
+HTTPClient http;
+
+http.begin("http://httpbin.org/get");
+
+int code = http.GET();
+
+Serial.print("Code HTTP : ");
+Serial.println(code);
+
+http.end();
+
+
+  dht.begin();
+}
+
+void loop() {
+  float temperature = dht.readTemperature();
+  float humidite = dht.readHumidity();
+
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.println(" °C");
+
+  Serial.print("Humidite: ");
+  Serial.print(humidite);
+  Serial.println(" %");
+  
+if (isnan(temperature)) {
+  digitalWrite(led, LOW);
+  Serial.println("Erreur capteur !");
+}
+else if (temperature >= 30) {
+  digitalWrite(led, HIGH);
+  Serial.println("ALERTE : Temperature elevee !");
+}
+else {
+  digitalWrite(led, LOW);
+  Serial.println("Temperature normale");
+}
+if (humidite >= 70) {
+  Serial.println("ALERTE : Humidite elevee !");
+}
+
+
+if (!isnan(temperature) &&
+    !isnan(humidite) &&
+    WiFi.status() == WL_CONNECTED) {
+
+  String url = "http://api.thingspeak.com/update?api_key=";
+  url += channelKey;
+  url += "&field1=" + String(temperature);
+  url += "&field2=" + String(humidite);
+
+  HTTPClient http;
+  http.begin(url);
+
+  int code = http.GET();
+  String reponse = http.getString();
+
+  Serial.print("HTTP : ");
+  Serial.println(code);
+
+  Serial.print("Entry ID : ");
+  Serial.println(reponse);
+
+  http.end();
+}
+
+
+
+  delay(20000);
+}
